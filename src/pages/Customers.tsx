@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Plus, Eye, Edit, Trash2, ChevronUp, ChevronDown, X, Save, Search, Filter } from 'lucide-react';
 import customersData from '../data/customers.json';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Customer {
   id: number;
@@ -192,16 +194,53 @@ const Customers: React.FC = () => {
   };
 
   const handleExport = () => {
-    const dataStr = JSON.stringify(customers, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'customers.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+    doc.setFontSize(16);
+    doc.text('Customers Report', 40, 40);
+
+    const tableColumn = [
+      'ID',
+      'Name',
+      'Email',
+      'Phone',
+      'Address',
+      'Purchases ($)',
+      'Order Qty'
+    ];
+
+    const tableRows = customers.map((c) => [
+      c.id,
+      c.name,
+      c.email,
+      c.phone,
+      c.address,
+      c.purchases.toFixed(2),
+      c.orderQty
+    ]);
+
+    autoTable(doc, {
+      startY: 60,
+      head: [tableColumn],
+      body: tableRows,
+      styles: { fontSize: 10, cellPadding: 6 },
+      headStyles: { fillColor: [37, 99, 235] },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 40, right: 40 },
+      didDrawPage: (data) => {
+        const pageSize = doc.internal.pageSize;
+        const pageWidth = pageSize.getWidth ? pageSize.getWidth() : (pageSize as any).width;
+        doc.setFontSize(10);
+        doc.text(
+          `Generated: ${new Date().toLocaleString()}`,
+          pageWidth - 40,
+          30,
+          { align: 'right' }
+        );
+      }
+    });
+
+    doc.save('customers.pdf');
   };
 
   const handleSelectAll = () => {
