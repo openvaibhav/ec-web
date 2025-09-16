@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProfileProvider } from './contexts/ProfileContext';
+import { CompanyProvider } from './contexts/CompanyContext';
 import Layout from './components/Layout';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
@@ -32,23 +33,25 @@ function App() {
   return (
     <ThemeProvider>
       <ProfileProvider>
-        <Router>
-          <Layout onLogout={() => setIsAuthenticated(false)}>
-            <Routes>
-              <Route path="/" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
-              <Route path="/products" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Products</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
-              <Route path="/orders" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Orders</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/customers/add" element={<AddCustomer />} />
-              <Route path="/customers/edit" element={<EditCustomer />} />
-              <Route path="/customers/edit/:id" element={<EditCustomer />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/sales-report" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Sales Report</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
-              <Route path="/help" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Help</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Layout>
-        </Router>
+        <CompanyProvider>
+          <Router>
+            <Layout onLogout={() => setIsAuthenticated(false)}>
+              <Routes>
+                <Route path="/" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
+                <Route path="/products" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Products</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
+                <Route path="/orders" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Orders</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
+                <Route path="/customers" element={<Customers />} />
+                <Route path="/customers/add" element={<AddCustomer />} />
+                <Route path="/customers/edit" element={<EditCustomer />} />
+                <Route path="/customers/edit/:id" element={<EditCustomer />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/sales-report" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Sales Report</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
+                <Route path="/help" element={<div className="p-6"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">Help</h1><p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p></div>} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </CompanyProvider>
       </ProfileProvider>
     </ThemeProvider>
   );

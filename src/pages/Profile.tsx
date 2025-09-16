@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { User, Save, Camera, Lock, Bell, Shield, AlertCircle, Settings } from 'lucide-react';
 import { useProfile } from '../contexts/ProfileContext';
+import { useCompany } from '../contexts/CompanyContext';
 
 const Profile: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -22,18 +24,15 @@ const Profile: React.FC = () => {
     bio: '',
     avatar: '',
   });
+  const [originalCompanyData, setOriginalCompanyData] = useState({
+    name: '',
+    logo: '',
+    type: '',
+  });
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [companyUrl, setCompanyUrl] = useState('');
-  const [companyData, setCompanyData] = useState(() => {
-    const savedCompany = localStorage.getItem('companyData');
-    return savedCompany ? JSON.parse(savedCompany) : {
-      name: 'Kanky Store',
-      logo: '',
-      type: 'Company'
-    };
-  });
 
   const {
     profileData,
@@ -47,6 +46,13 @@ const Profile: React.FC = () => {
     saveSecuritySettings,
     isSaving,
   } = useProfile();
+
+  const {
+    companyData,
+    updateCompanyData,
+    saveCompanyData,
+    isSaving: isSavingCompany,
+  } = useCompany();
 
   // Store original data when editing starts
   useEffect(() => {
@@ -88,6 +94,52 @@ const Profile: React.FC = () => {
     saveAccountSettings();
   };
 
+  // Company editing functions
+  useEffect(() => {
+    if (isEditingCompany && !originalCompanyData.name) {
+      setOriginalCompanyData({
+        name: companyData.name,
+        logo: companyData.logo,
+        type: companyData.type,
+      });
+    }
+  }, [isEditingCompany, companyData, originalCompanyData.name]);
+
+  const handleCompanyInputChange = (field: string, value: string) => {
+    updateCompanyData({ [field]: value });
+  };
+
+  const handleCompanyCancel = () => {
+    // Restore original data
+    updateCompanyData(originalCompanyData);
+    setIsEditingCompany(false);
+    // Clear original data
+    setOriginalCompanyData({
+      name: '',
+      logo: '',
+      type: '',
+    });
+  };
+
+  const handleCompanySave = async () => {
+    try {
+      await saveCompanyData();
+      setIsEditingCompany(false);
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
+      // Clear original data
+      setOriginalCompanyData({
+        name: '',
+        logo: '',
+        type: '',
+      });
+    } catch (error) {
+      setErrorMessage('Failed to save company settings');
+      setShowErrorMessage(true);
+      setTimeout(() => setShowErrorMessage(false), 5000);
+    }
+  };
+
   const handlePasswordChange = (field: string, value: string) => {
     setPasswordData(prev => ({
       ...prev,
@@ -96,6 +148,11 @@ const Profile: React.FC = () => {
   };
 
   const handleCameraClick = () => {
+    // Store original avatar for cancel functionality
+    setOriginalProfileData(prev => ({
+      ...prev,
+      avatar: profileData.avatar
+    }));
     setAvatarUrl(profileData.avatar);
     setShowAvatarModal(true);
   };
@@ -156,66 +213,27 @@ AVATAR_UPDATED=${new Date().toISOString()}`;
   };
 
   const handleAvatarCancel = () => {
+    // Restore original avatar if user cancels
+    updateProfileData({ avatar: originalProfileData.avatar });
     setShowAvatarModal(false);
     setAvatarUrl('');
   };
 
   const handleCompanyClick = () => {
+    // Store original logo for cancel functionality
+    setOriginalCompanyData({
+      name: companyData.name,
+      logo: companyData.logo,
+      type: companyData.type,
+    });
     setCompanyUrl(companyData.logo);
     setShowCompanyModal(true);
   };
 
   const handleCompanyUpdate = async () => {
     if (companyUrl.trim()) {
-      const updatedCompany = { ...companyData, logo: companyUrl.trim() };
-      setCompanyData(updatedCompany);
-      localStorage.setItem('companyData', JSON.stringify(updatedCompany));
-      
-      // Dispatch custom event to notify the sidebar
-      window.dispatchEvent(new CustomEvent('companyUpdated', {
-        detail: { companyData: updatedCompany }
-      }));
-      
-      // Download updated company data as .env file
-      const companyEnvContent = `# Company Data
-COMPANY_NAME=${companyData.name}
-COMPANY_LOGO=${companyUrl.trim()}
-COMPANY_TYPE=${companyData.type}
-
-# Profile Data
-PROFILE_FIRST_NAME=${profileData.firstName}
-PROFILE_LAST_NAME=${profileData.lastName}
-PROFILE_EMAIL=${profileData.email}
-PROFILE_PHONE=${profileData.phone}
-PROFILE_LOCATION=${profileData.location}
-PROFILE_BIO=${profileData.bio}
-PROFILE_AVATAR=${profileData.avatar}
-
-# Account Settings
-ACCOUNT_EMAIL_NOTIFICATIONS=${accountSettings.emailNotifications}
-ACCOUNT_SMS_NOTIFICATIONS=${accountSettings.smsNotifications}
-ACCOUNT_MARKETING_EMAILS=${accountSettings.marketingEmails}
-ACCOUNT_PUBLIC_PROFILE=${accountSettings.publicProfile}
-
-# Security Settings
-SECURITY_TWO_FACTOR_AUTH=${securitySettings.twoFactorAuth}
-SECURITY_SESSION_TIMEOUT=${securitySettings.sessionTimeout}
-SECURITY_PASSWORD_MIN_LENGTH=${securitySettings.passwordMinLength}
-SECURITY_REQUIRE_2FA=${securitySettings.require2FA}
-
-# Company Updated
-COMPANY_UPDATED=${new Date().toISOString()}`;
-
-      const dataBlob = new Blob([companyEnvContent], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = '.env';
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      updateCompanyData({ logo: companyUrl.trim() });
+      await saveCompanyData();
       
       setShowCompanyModal(false);
       setCompanyUrl('');
@@ -224,21 +242,13 @@ COMPANY_UPDATED=${new Date().toISOString()}`;
     }
   };
 
-  const handleCompanyCancel = () => {
+  const handleCompanyModalCancel = () => {
+    // Restore original logo if user cancels
+    updateCompanyData({ logo: originalCompanyData.logo });
     setShowCompanyModal(false);
     setCompanyUrl('');
   };
 
-  const handleCompanyNameChange = (field: string, value: string) => {
-    const updatedCompany = { ...companyData, [field]: value };
-    setCompanyData(updatedCompany);
-    localStorage.setItem('companyData', JSON.stringify(updatedCompany));
-    
-    // Dispatch custom event to notify the sidebar
-    window.dispatchEvent(new CustomEvent('companyUpdated', {
-      detail: { companyData: updatedCompany }
-    }));
-  };
 
   const handleSaveProfile = async () => {
     const result = await saveProfileData();
@@ -645,7 +655,15 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
           {activeTab === 'company' && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Company Settings</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">Company Settings</h2>
+                  <button
+                    onClick={isEditingCompany ? handleCompanyCancel : () => setIsEditingCompany(true)}
+                    className="text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                  >
+                    {isEditingCompany ? 'Cancel' : 'Edit Company'}
+                  </button>
+                </div>
               </div>
               <div className="p-6">
                 <div className="flex flex-col items-center mb-8">
@@ -669,12 +687,14 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
                         <span className="text-white font-bold text-2xl">K</span>
                       </div>
                     )}
-                    <button 
-                      onClick={handleCompanyClick}
-                      className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700"
-                    >
-                      <Camera className="w-4 h-4" />
-                    </button>
+                    {isEditingCompany && (
+                      <button 
+                        onClick={handleCompanyClick}
+                        className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                   <h3 className="mt-4 text-xl font-medium text-gray-900 dark:text-white">
                     {companyData.name}
@@ -690,8 +710,13 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
                     <input
                       type="text"
                       value={companyData.name}
-                      onChange={(e) => handleCompanyNameChange('name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) => handleCompanyInputChange('name', e.target.value)}
+                      disabled={!isEditingCompany}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isEditingCompany 
+                          ? 'bg-white dark:bg-gray-700' 
+                          : 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
+                      }`}
                       required
                     />
                   </div>
@@ -702,12 +727,46 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
                     <input
                       type="text"
                       value={companyData.type}
-                      onChange={(e) => handleCompanyNameChange('type', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) => handleCompanyInputChange('type', e.target.value)}
+                      disabled={!isEditingCompany}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isEditingCompany 
+                          ? 'bg-white dark:bg-gray-700' 
+                          : 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
+                      }`}
                       required
                     />
                   </div>
                 </div>
+
+
+                {isEditingCompany && (
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                      onClick={handleCompanyCancel}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCompanySave}
+                      disabled={isSavingCompany}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center"
+                    >
+                      {isSavingCompany ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -855,7 +914,11 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
                 <input
                   type="url"
                   value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  onChange={(e) => {
+                    setAvatarUrl(e.target.value);
+                    // Update profile data instantly for preview
+                    updateProfileData({ avatar: e.target.value });
+                  }}
                   placeholder="https://example.com/image.jpg"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -863,14 +926,14 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
                   Enter a valid image URL (JPG, PNG, GIF, etc.)
                 </p>
               </div>
-              {avatarUrl && (
+              {profileData.avatar && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Preview
                   </label>
                   <div className="flex justify-center">
                     <img
-                      src={avatarUrl}
+                      src={profileData.avatar}
                       alt="Preview"
                       className="h-20 w-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
                       onError={(e) => {
@@ -912,7 +975,7 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Update Company Logo</h3>
               <button
-                onClick={handleCompanyCancel}
+                onClick={handleCompanyModalCancel}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -928,7 +991,11 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
                 <input
                   type="url"
                   value={companyUrl}
-                  onChange={(e) => setCompanyUrl(e.target.value)}
+                  onChange={(e) => {
+                    setCompanyUrl(e.target.value);
+                    // Update company data instantly for preview
+                    updateCompanyData({ logo: e.target.value });
+                  }}
                   placeholder="https://example.com/logo.png"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -936,14 +1003,14 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
                   Enter a valid image URL (JPG, PNG, GIF, etc.)
                 </p>
               </div>
-              {companyUrl && (
+              {companyData.logo && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Preview
                   </label>
                   <div className="flex justify-center">
                     <img
-                      src={companyUrl}
+                      src={companyData.logo}
                       alt="Preview"
                       className="h-20 w-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
                       onError={(e) => {
@@ -961,7 +1028,7 @@ PASSWORD_UPDATED=${new Date().toISOString()}`;
             </div>
             <div className="flex justify-end space-x-3 mt-6">
               <button
-                onClick={handleCompanyCancel}
+                onClick={handleCompanyModalCancel}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 Cancel

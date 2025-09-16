@@ -24,6 +24,12 @@ export interface SecuritySettings {
   twoFactorAuth: boolean;
 }
 
+export interface CompanyData {
+  name: string;
+  logo: string;
+  type: string;
+}
+
 // Default values from environment variables or fallbacks
 const getEnvValue = (key: string, defaultValue: string): string => {
   return process.env[key] || defaultValue;
@@ -53,6 +59,23 @@ export const defaultProfileData: ProfileData = {
   avatar: getEnvValue('REACT_APP_PROFILE_AVATAR', 'https://via.placeholder.com/120x120'),
 };
 
+// Default company data from environment
+export const defaultCompanyData: CompanyData = {
+  name: getEnvValue('REACT_APP_COMPANY_NAME', 'Kanky Store'),
+  logo: getEnvValue('REACT_APP_COMPANY_LOGO', ''),
+  type: getEnvValue('REACT_APP_COMPANY_TYPE', 'Company'),
+};
+
+// Debug: Log environment variables
+console.log('Environment Variables Debug:');
+console.log('REACT_APP_PROFILE_FIRST_NAME:', process.env.REACT_APP_PROFILE_FIRST_NAME);
+console.log('REACT_APP_PROFILE_LAST_NAME:', process.env.REACT_APP_PROFILE_LAST_NAME);
+console.log('REACT_APP_PROFILE_EMAIL:', process.env.REACT_APP_PROFILE_EMAIL);
+console.log('REACT_APP_COMPANY_NAME:', process.env.REACT_APP_COMPANY_NAME);
+console.log('REACT_APP_COMPANY_LOGO:', process.env.REACT_APP_COMPANY_LOGO);
+console.log('Default Profile Data:', defaultProfileData);
+console.log('Default Company Data:', defaultCompanyData);
+
 // Default account settings from environment
 export const defaultAccountSettings: AccountSettings = {
   emailNotifications: getEnvBoolean('REACT_APP_ACCOUNT_EMAIL_NOTIFICATIONS', true),
@@ -75,6 +98,7 @@ export class ProfileService {
   private static readonly PROFILE_STORAGE_KEY = 'user_profile';
   private static readonly SETTINGS_STORAGE_KEY = 'user_settings';
   private static readonly SECURITY_STORAGE_KEY = 'security_settings';
+  private static readonly COMPANY_STORAGE_KEY = 'company_data';
 
   // Load profile data from localStorage or return defaults
   static loadProfileData(): ProfileData {
@@ -161,6 +185,34 @@ export class ProfileService {
     localStorage.removeItem(this.SECURITY_STORAGE_KEY);
   }
 
+  // Load company data from localStorage or return defaults
+  static loadCompanyData(): CompanyData {
+    try {
+      const saved = localStorage.getItem(this.COMPANY_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...defaultCompanyData, ...parsed };
+      }
+    } catch (error) {
+      console.error('Error loading company data:', error);
+    }
+    return { ...defaultCompanyData };
+  }
+
+  // Save company data to localStorage
+  static saveCompanyData(companyData: CompanyData): void {
+    try {
+      localStorage.setItem(this.COMPANY_STORAGE_KEY, JSON.stringify(companyData));
+    } catch (error) {
+      console.error('Error saving company data:', error);
+    }
+  }
+
+  // Reset company data to environment defaults
+  static resetCompanyData(): void {
+    localStorage.removeItem(this.COMPANY_STORAGE_KEY);
+  }
+
   // Validate profile data
   static validateProfileData(profileData: ProfileData): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
@@ -194,11 +246,13 @@ export class ProfileService {
     const profileData = this.loadProfileData();
     const accountSettings = this.loadAccountSettings();
     const securitySettings = this.loadSecuritySettings();
+    const companyData = this.loadCompanyData();
 
     return JSON.stringify({
       profile: profileData,
       accountSettings,
       securitySettings,
+      companyData,
       exportedAt: new Date().toISOString()
     }, null, 2);
   }
@@ -224,6 +278,10 @@ export class ProfileService {
 
       if (data.securitySettings) {
         this.saveSecuritySettings(data.securitySettings);
+      }
+
+      if (data.companyData) {
+        this.saveCompanyData(data.companyData);
       }
 
       return {

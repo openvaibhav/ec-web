@@ -8,15 +8,13 @@ import {
   BarChart3, 
   Settings, 
   HelpCircle, 
-  Search,
   User,
   Moon,
-  Sun,
-  Filter,
-  X
+  Sun
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useProfile } from '../contexts/ProfileContext';
+import { useCompany } from '../contexts/CompanyContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,142 +23,13 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const { isDark, toggleTheme } = useTheme();
   const { profileData } = useProfile();
+  const { companyData } = useCompany();
   const location = useLocation();
 
-  // Company data state
-  const [companyData, setCompanyData] = useState(() => {
-    const savedCompany = localStorage.getItem('companyData');
-    return savedCompany ? JSON.parse(savedCompany) : {
-      name: 'Kanky Store',
-      logo: '',
-      type: 'Company'
-    };
-  });
 
-  // Listen for company data changes from localStorage
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const savedCompany = localStorage.getItem('companyData');
-      if (savedCompany) {
-        setCompanyData(JSON.parse(savedCompany));
-      }
-    };
 
-    const handleCompanyUpdate = (event: CustomEvent) => {
-      setCompanyData(event.detail.companyData);
-    };
-
-    // Listen for storage changes
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Listen for custom company update events
-    window.addEventListener('companyUpdated', handleCompanyUpdate as EventListener);
-    
-    // Also check for changes on focus (when user comes back to tab)
-    window.addEventListener('focus', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('companyUpdated', handleCompanyUpdate as EventListener);
-      window.removeEventListener('focus', handleStorageChange);
-    };
-  }, []);
-
-  // Get search placeholder and functionality based on current page
-  const getSearchConfig = () => {
-    const path = location.pathname;
-    
-    // Only show search on main pages, not on sub-pages
-    if (path === '/products') {
-      return {
-        placeholder: 'Search products',
-        showSearch: true
-      };
-    } else if (path === '/orders') {
-      return {
-        placeholder: 'Search orders',
-        showSearch: true
-      };
-    } else if (path === '/customers') {
-      return {
-        placeholder: 'Search customers',
-        showSearch: true
-      };
-    } else {
-      return {
-        placeholder: '',
-        showSearch: false
-      };
-    }
-  };
-
-  const searchConfig = getSearchConfig();
-
-  // Handle search functionality
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    // Store search term in localStorage for the current page to use
-    localStorage.setItem(`search_${location.pathname}`, term);
-    
-    // Dispatch custom event to notify the current page
-    window.dispatchEvent(new CustomEvent('searchUpdated', {
-      detail: { term, path: location.pathname, filters: selectedFilters }
-    }));
-  };
-
-  // Handle filter changes
-  const handleFilterChange = (filter: string) => {
-    const newFilters = selectedFilters.includes(filter)
-      ? selectedFilters.filter(f => f !== filter)
-      : [...selectedFilters, filter];
-    
-    setSelectedFilters(newFilters);
-    
-    // Store filters in localStorage
-    localStorage.setItem(`filters_${location.pathname}`, JSON.stringify(newFilters));
-    
-    // Dispatch search update with new filters
-    window.dispatchEvent(new CustomEvent('searchUpdated', {
-      detail: { term: searchTerm, path: location.pathname, filters: newFilters }
-    }));
-  };
-
-  // Get available filters based on current page
-  const getAvailableFilters = () => {
-    const path = location.pathname;
-    
-    if (path === '/customers') {
-      return [
-        { key: 'name', label: 'Name' },
-        { key: 'id', label: 'ID' },
-        { key: 'email', label: 'Email' },
-        { key: 'phone', label: 'Phone' },
-        { key: 'address', label: 'Address' },
-        { key: 'purchases', label: 'Purchases' },
-        { key: 'orderQty', label: 'Order Qty' }
-      ];
-    }
-    return [];
-  };
-
-  // Clear search when navigating away from search-enabled pages
-  useEffect(() => {
-    if (!searchConfig.showSearch) {
-      setSearchTerm('');
-      setSelectedFilters([]);
-    } else {
-      // Load saved filters for current page
-      const savedFilters = localStorage.getItem(`filters_${location.pathname}`);
-      if (savedFilters) {
-        setSelectedFilters(JSON.parse(savedFilters));
-      }
-    }
-  }, [location.pathname, searchConfig.showSearch]);
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard, current: location.pathname === '/' },
@@ -231,86 +100,11 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
             </svg>
           </button>
           <div className="flex-1 px-4 flex justify-between">
-            {searchConfig.showSearch ? (
-              <div className="flex-1 flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="relative text-gray-400 focus-within:text-gray-600 dark:focus-within:text-gray-300">
-                    <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none pl-3">
-                      <Search className="h-5 w-5" />
-                    </div>
-                    <input
-                      className="block w-full h-12 pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white dark:bg-gray-700"
-                      placeholder={searchConfig.placeholder}
-                      type="search"
-                      value={searchTerm}
-                      onChange={(e) => handleSearch(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                    className="flex items-center justify-center w-12 h-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    <Filter className="h-5 w-5" />
-                  </button>
-                  
-                  {/* Filter Dropdown */}
-                  {showFilterDropdown && (
-                    <div className="absolute top-full right-0 mt-1 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-                      <div className="p-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Filter by fields</h3>
-                          <button
-                            onClick={() => setShowFilterDropdown(false)}
-                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          {getAvailableFilters().map((filter) => (
-                            <label key={filter.key} className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={selectedFilters.includes(filter.key)}
-                                onChange={() => handleFilterChange(filter.key)}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                              />
-                              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                {filter.label}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                        {selectedFilters.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <button
-                              onClick={() => {
-                                setSelectedFilters([]);
-                                localStorage.removeItem(`filters_${location.pathname}`);
-                                window.dispatchEvent(new CustomEvent('searchUpdated', {
-                                  detail: { term: searchTerm, path: location.pathname, filters: [] }
-                                }));
-                              }}
-                              className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                            >
-                              Clear all filters
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <div className="flex-1 flex">
+              <div className="w-full flex md:ml-0">
+                {/* Empty space - no page titles shown */}
               </div>
-            ) : (
-              <div className="flex-1 flex">
-                <div className="w-full flex md:ml-0">
-                  {/* Empty space - no page titles shown */}
-                </div>
-              </div>
-            )}
+            </div>
             <div className="ml-4 flex items-center md:ml-6">
               <div className="ml-3 relative">
                 <div className="flex items-center">
@@ -490,7 +284,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ navigation, tools, isDa
             const Icon = item.icon;
             if (item.isToggle) {
               return (
-                <div key={item.name} className="flex items-center justify-between px-2 py-2">
+                <div key={item.name} className="flex items-center justify-between px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors">
                   <div className="flex items-center">
                     <Icon className="mr-3 h-5 w-5 flex-shrink-0 text-gray-600 dark:text-gray-300" />
                     <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{item.name}</span>
@@ -510,11 +304,16 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ navigation, tools, isDa
                 </div>
               );
             }
+            const isActive = location.pathname === item.href; // eslint-disable-line no-restricted-globals
             return (
               <Link
                 key={item.name}
                 to={item.href}
-                className="text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isActive
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                }`}
               >
                 <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
                 {item.name}
